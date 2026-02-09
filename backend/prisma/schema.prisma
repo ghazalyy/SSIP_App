@@ -1,0 +1,43 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Stock {
+  symbol    String   @id
+  name      String
+  sector    String
+  marketData MarketData[]
+  news      NewsItem[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MarketData {
+  id        Int      @id @default(autoincrement())
+  stockSymbol String
+  stock     Stock    @relation(fields: [stockSymbol], references: [symbol])
+  price     Float
+  change    Float    @default(0)
+  volume    Int
+  timestamp DateTime @default(now())
+}
+
+model NewsItem {
+  id        Int      @id @default(autoincrement())
+  title     String
+  source    String
+  url       String?
+  summary   String?
+  sentimentScore Float
+  relatedTicker String
+  stock     Stock    @relation(fields: [relatedTicker], references: [symbol])
+  publishedAt DateTime @default(now())
+}
