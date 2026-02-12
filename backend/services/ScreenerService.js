@@ -1,6 +1,6 @@
 const YahooFinance = require('yahoo-finance2').default;
 const yahooFinance = new YahooFinance();
-const { RSI, SMA } = require('technicalindicators');
+const { RSI, SMA, MACD, BollingerBands } = require('technicalindicators');
 
 // Map local tickers to Yahoo Finance Tickers
 const TICKER_MAP = {
@@ -39,34 +39,63 @@ class ScreenerService {
                 }
 
                 const closePrices = candles.map(candle => candle.close);
+                const lastPrice = quote.price.regularMarketPrice;
 
                 // 3. Calculate Technical Indicators
                 // RSI (14 period)
                 const rsiValues = RSI.calculate({ values: closePrices, period: 14 });
-                const currentRSI = rsiValues[rsiValues.length - 1];
+                const lastRSI = rsiValues[rsiValues.length - 1];
 
-                // MA50
-                const sma50Values = SMA.calculate({ values: closePrices, period: 50 });
-                const currentSMA50 = sma50Values[sma50Values.length - 1];
-                const currentPrice = quote.price.regularMarketPrice;
+                // SMA (50 period)
+                const sma50Input = { period: 50, values: closePrices };
+                const sma50Result = SMA.calculate(sma50Input);
+                const lastSMA50 = sma50Result[sma50Result.length - 1];
 
-                // 4. Construct Stock Object
+                // MACD (12, 26, 9)
+                const macdInput = {
+                    values: closePrices,
+                    fastPeriod: 12,
+                    slowPeriod: 26,
+                    signalPeriod: 9,
+                    SimpleMAOscillator: false,
+                    SimpleMASignal: false
+                };
+                const macdResult = MACD.calculate(macdInput);
+                const lastMACD = macdResult.length > 0 ? macdResult[macdResult.length - 1] : { MACD: 0, signal: 0, histogram: 0 };
+
+                // Bollinger Bands (20, 2)
+                const bbInput = {
+                    period: 20,
+                    values: closePrices,
+                    stdDev: 2
+                };
+                const bbResult = BollingerBands.calculate(bbInput);
+                const lastBB = bbResult.length > 0 ? bbResult[bbResult.length - 1] : { upper: 0, middle: 0, lower: 0 };
+
+                const isBullish = lastPrice > lastSMA50;
+
+                // 4. Construct Stock Object and Apply Filter Logic
+                let isMatch = true;
+
                 const stockData = {
-                    symbol: symbol,
-                    price: currentPrice,
-                    peRatio: quote.summaryDetail?.trailingPE || 0,
-                    roe: quote.financialData?.returnOnEquity || 0,
-                    marketCap: quote.price?.marketCap || 0,
+                    symbol,
+                    name: quote.price.longName,
+                    price: lastPrice,
+                    change: quote.price.regularMarketChangePercent * 100, // percentage
+                    marketCap: quote.defaultKeyStatistics.enterpriseValue,
+                    peRatio: quote.branch === 'financial' ? 0 : quote.financialData.currentPrice / quote.financialData.targetMeanPrice, // rough est, or use trailingPE
+                    pe: quote.summaryDetail?.trailingPE || 0,
+                    sector: 'Technology', // Yahoo summary doesn't always have simple sector field in this module, need 'summaryProfile'
                     technical: {
-                        rsi: currentRSI,
-                        ma50: currentSMA50,
-                        isBullish: currentPrice > currentSMA50 // Simple Technical Rule
+                        rsi: lastRSI,
+                        ma50: lastSMA50,
+                        macd: lastMACD,
+                        bb: lastBB,
+                        isBullish
                     }
                 };
 
                 // 5. Apply Filter Logic (The "Smart" Part)
-                let isMatch = true;
-
                 // Example Rule: Price > MA50 (Bullish)
                 if (criteria.bullishOnly && !stockData.technical.isBullish) isMatch = false;
 

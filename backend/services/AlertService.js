@@ -33,6 +33,38 @@ class AlertService {
                     message: `Bullish Trend detected (Price > MA50).`
                 });
             }
+
+            // MACD Alerts
+            if (technical.macd) {
+                if (technical.macd.histogram > 0 && technical.macd.histogram < 0.5) { // Just crossed up (simplified check)
+                    newAlerts.push({
+                        type: 'TECHNICAL',
+                        level: 'opportunity',
+                        symbol,
+                        message: `MACD Bullish Crossover Potential.`
+                    });
+                }
+            }
+
+            // Bollinger Bands Alerts
+            if (technical.bb && price) {
+                if (price < technical.bb.lower) {
+                    newAlerts.push({
+                        type: 'TECHNICAL',
+                        level: 'opportunity',
+                        symbol,
+                        message: `Price below Lower Bollinger Band (Oversold).`
+                    });
+                }
+                if (price > technical.bb.upper) {
+                    newAlerts.push({
+                        type: 'TECHNICAL',
+                        level: 'warning',
+                        symbol,
+                        message: `Price above Upper Bollinger Band (Overbought).`
+                    });
+                }
+            }
         }
 
         // 2. Volatility Alerts
