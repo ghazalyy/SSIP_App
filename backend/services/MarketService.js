@@ -1,4 +1,5 @@
-const yahooFinance = require('yahoo-finance2').default;
+const YahooFinance = require('yahoo-finance2').default;
+const yahooFinance = new YahooFinance();
 const prisma = require('../lib/db');
 
 // Map local tickers to Yahoo Finance Tickers (e.g., BBCA -> BBCA.JK)
@@ -38,11 +39,12 @@ class MarketService {
             const yfSymbol = TICKER_MAP[symbol];
             if (!yfSymbol) return [];
 
-            const today = new Date();
-            const queryOptions = { period1: '2023-01-01', interval: '1d' };
-            const result = await yahooFinance.historical(yfSymbol, queryOptions);
+            // Use chart() instead of historical() for robustness
+            const result = await yahooFinance.chart(yfSymbol, { period1: '2024-01-01', interval: '1d' });
 
-            return result.map(candle => ({
+            if (!result || !result.quotes) return [];
+
+            return result.quotes.map(candle => ({
                 time: candle.date.toISOString().split('T')[0],
                 open: candle.open,
                 high: candle.high,
